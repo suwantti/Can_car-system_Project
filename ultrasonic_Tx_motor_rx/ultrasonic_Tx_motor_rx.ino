@@ -21,7 +21,7 @@ float rangingTimeOut = 2 * maxDistance / 100 / soundVelocity * 1000000; // ultra
 
 struct can_frame canMsg;
 struct can_frame canMsg1;
-struct can_frame canMsg2;
+//struct can_frame canMsg2;
 MCP2515 mcp2515(4);
 
 int distance; // ultrasonic
@@ -43,9 +43,6 @@ void setup() {
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
-  
-  Serial.println("------- CAN Read ----------");
-  Serial.println("ID  DLC   DATA");
 }
 
 void loop() {
@@ -56,70 +53,53 @@ void loop() {
   distance = getDistance();  // ultrasonic
   
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
-    Serial.print(canMsg.can_id, HEX); // print ID
-    Serial.print(" "); 
-    Serial.print(canMsg.can_dlc, HEX); // print DLC
-    Serial.print(" ");
-    
-    for (int i = 0; i<canMsg.can_dlc; i++)  {  // print the data
-      Serial.print(canMsg.data[i],HEX);
-      Serial.print(" ");
-    }
-    Serial.println(); 
-    //Serial.println(distance); 
+
   }
 
   //uint8_t highByte = (distance >> 8) & 0xFF; // 상위 바이트
   //uint8_t lowByte = distance & 0xFF;        // 하위 바이트
-  uint8_t data = distance & 0xFF;
-                      if (nunchuk_read()) {
+  uint8_t data = distance & 0xFF; // ultrasonic data 
+  canMsg1.can_id  = 0xF6;
+  canMsg1.can_dlc = 2;
+  canMsg1.data[0] = data;
+  
+                      if (nunchuk_read()) { // wii data
                       int wiiValue = nunchuk_joystickY(); 
                       mappedValue = map(wiiValue, -126, 125, 0, 50);
                       mappedValue = constrain(mappedValue, 0, 50);
 
                       }
-    
-  canMsg1.can_id  = 0xF6;
-  canMsg1.can_dlc = 2;
-  canMsg1.data[0] = data;
-  //mcp2515.sendMessage(&canMsg1);
-
-                      //int highByte = (mappedValue >> 8) & 0xFF; 
                       int lowByte = mappedValue & 0xFF;
-                      //canMsg2.can_id  = 0xF6;
-                      //canMsg2.can_dlc = 2;
-                      //canMsg1.data[1] = highByte;
                       canMsg1.data[1] = lowByte;
-                      mcp2515.sendMessage(&canMsg1);
+                      mcp2515.sendMessage(&canMsg1);  // ultrasonic, wii data tx
   }
   
   if(canMsg.can_id == 0x80){
-  if(canMsg.data[0] == 0x0F){ // 초음파가 15이내가 아니고 wii 값이 30넘으면 모터 속도 15
-      Motor(1,1,15);
+  if(canMsg.data[0] == 0x0F){ // 초음파가 15미만이 아니고 wii 값이 30초과이고 50이 아니면 모터 속도 15
+      Motor(1,1,15);          // 50이 아닌 조건을 넣은 이유는 모터 가속도를 값을 추출하기위해 추가하였음
       Motor(2,1,15);
   }
-  else if(canMsg.data[0] == 0x00){
+  else if(canMsg.data[0] == 0x1E){  // 가속도를 위해 wii 값이 50이면 모터 속도 30 (50은 16진수로 1E임)
+      Motor(1,1,30);
+      Motor(2,1,30);
+      }
+      
+  else if(canMsg.data[0] == 0x00){  // 초음파 값이 15미만이면 메시지 값으로 0을 받고 0이면 모터 정지
       Motor(1,0,0);
       Motor(2,0,0);
       }
    
-  else if(canMsg.data[0] == 0x14){ //후진
+  else if(canMsg.data[0] == 0x14){  // wii 값이 0이면 메시지 값으로 0x14로 보내고 모터 속도는 15(후진)
       Motor(1,-1,15);
       Motor(2,-1,15);
     }
-  else{
+  else{ // 초기 상태 값, 즉 아무 값이 들어오지 않은 상태 - > 모터 정지 상태임
     Motor(1,0,0);
     Motor(2,0,0);
     
     }
   }
-  Serial.println(mappedValue);
-  //if(canMsg.can_id == 0x80){ //ID가 80이고 초음파가 15이내면 정지
-    //if(canMsg.data[0] == 0x00){
-      //Motor(1,0,0);
-      //Motor(2,0,0);
-      //}
-  //}
+
 }
 //////////////////////////////////////////////////////////////////////////////////
 float getDistance() {
