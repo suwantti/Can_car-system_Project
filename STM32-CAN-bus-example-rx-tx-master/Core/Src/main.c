@@ -195,6 +195,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan1)
     uint8_t csend1[] = {0};		// ultrasonic sensor data under the 15
     uint8_t csend2[] = {0x0F};	// wii data < 25, motor speed 15
     uint8_t csend3[] = {0x14};	// wii data >= 25 motor speed 15 but back_motor
+    uint8_t csend4[] = {0x1E};	// motor speed 30
 
     //uint8_t rxData[8];
     if (currentTick - lastTick >= 50) {  // 10ms 주기
@@ -203,12 +204,15 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan1)
     if (HAL_CAN_GetRxMessage(hcan1, CAN_RX_FIFO0, &rxHeader, canRX) == HAL_OK) {
          //ultrasonic data process
     	if (rxHeader.StdId == 0xF6){
-    		if(canRX[1] > 0x1E){
+    		if(canRX[1] > 0x1E && canRX[1] != 0x32){
     		    HAL_CAN_AddTxMessage(&hcan,&txHeader, csend2,&canMailbox);
     		}
-    		else if(canRX[1] < 0x0F){
+    		else if(canRX[1] == 0x00){
 
     		    HAL_CAN_AddTxMessage(&hcan,&txHeader, csend3,&canMailbox);
+    		}
+    		else if(canRX[1] >= 0x32){
+    		    HAL_CAN_AddTxMessage(&hcan,&txHeader, csend4,&canMailbox);
     		}
     	}
     }
